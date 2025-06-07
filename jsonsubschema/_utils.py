@@ -179,6 +179,15 @@ def regex_meet(s1, s2):
         return None
 
 
+# matches pro_[0-9a-f]{32} or (cnt|pro|unt)_[0-9a-f]{32} (with any 3 characters in the first group)
+typed_id_regex_regex = re.compile(r"^((...)|(\(...(\|...)*)\))_\[0\-9a\-f\]\{32\}$")
+
+class RegexCardinalityTooLargeError(Exception):
+    pass
+
+class RegexCardinalityInfiniteError(Exception):
+    pass
+
 def regex_isSubset(s1, s2):
     ''' regex subset is quite expensive to compute
         especially for complex patterns. '''
@@ -186,19 +195,40 @@ def regex_isSubset(s1, s2):
         s1 = parse(s1).reduce()
         s2 = parse(s2).reduce()
         try:
-            s1.cardinality()
-            s2.cardinality()
-            return set(s1.strings()).issubset(s2.strings())
-        except (OverflowError, Exception):
-            # catching a general exception thrown from greenery
-            # see https://github.com/qntm/greenery/blob/master/greenery/lego.py
-            # ... raise Exception("Please choose an 'otherchar'")
-            return s1.equivalent(s2) or (s1 & s2.everythingbut()).empty()
-        except Exception as e:
-            exit_with_msg("regex failure from greenry", e)
+            # handle a special case where:
+            # s1 and s2 are something like this pro_[0-9a-f]{32} or (cnt|pro|unt)_[0-9a-f]{32}
+            # this is needed because we have the ids as patterns and so we only need to extract the starting part
+            # and check if the id type is a subset of the other
+            # when we would actually compare it would cause run forever because so many combinations
+            if match1 := typed_id_regex_regex.match(str(s1)):
+                if match2 := typed_id_regex_regex.match(str(s2)):
+                    # extract the first group as a set of three chars
+                    s1_id_type_set = set(match1.group(1).removeprefix("(").removesuffix(")").split("|"))
+                    s2_id_type_set = set(match2.group(1).removeprefix("(").removesuffix(")").split("|"))
+                    # if left is a subset of right, then the whole regex is a subset of right
+                    if s1_id_type_set.issubset(s2_id_type_set):
+                        return True
+                    else:
+                        False
+
+            s1_cardinality = s1.cardinality()
+            s2_cardinality = s2.cardinality()
+
+            if s1_cardinality <= s2_cardinality:
+                # arbitrary choice, but we only allow max cardinality of 1000
+                if s1_cardinality > 1000 or s2_cardinality > 1000:
+                    raise RegexCardinalityTooLargeError(f"Regex cardinality is too large: {s1_cardinality} and {s2_cardinality}")
+                else:
+                    return set(s1.strings()).issubset(s2.strings())
+            # left matches more strings than right, so it cannot be a subset
+            else:
+                return False
+        except OverflowError:
+            raise RegexCardinalityInfiniteError(f"Regex cardinality is infinite")
     elif s1:
         return True
     elif s2:
+        # TODO: make sure this is not a problem??
         return parse(s2).equivalent(parse(".*"))
 
 
