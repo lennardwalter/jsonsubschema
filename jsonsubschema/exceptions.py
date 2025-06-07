@@ -52,6 +52,12 @@ class UnsupportedNegatedArray(_SubtypeCheckError):
     def __str__(self):
         return f'Array negation at {self.schema} is not supported.'
 
+class RegexCardinalityTooLargeError(Exception):
+    pass
+
+class RegexCardinalityInfiniteError(Exception):
+    pass
+
 # class UnsupportedSchemaType(_Error):
 #     '''
 #     Probably this is not required since custom types are not

@@ -18,7 +18,7 @@ from greenery import parse
 
 import jsonsubschema.config as config
 import jsonsubschema._constants as definitions
-
+from jsonsubschema.exceptions import RegexCardinalityTooLargeError, RegexCardinalityInfiniteError
 
 def is_str(i):
     return isinstance(i, str)
@@ -181,12 +181,6 @@ def regex_meet(s1, s2):
 
 # matches pro_[0-9a-f]{32} or (cnt|pro|unt)_[0-9a-f]{32} (with any 3 characters in the first group)
 typed_id_regex_regex = re.compile(r"^((...)|(\(...(\|...)*)\))_\[0\-9a\-f\]\{32\}$")
-
-class RegexCardinalityTooLargeError(Exception):
-    pass
-
-class RegexCardinalityInfiniteError(Exception):
-    pass
 
 def regex_isSubset(s1, s2):
     ''' regex subset is quite expensive to compute
